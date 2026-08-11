@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no" />
+<title>Perfect Fit — a tiny timing game</title>
+<meta name="description" content="Perfect Fit: a minimalist one-tap timing game. Stop the block in the zone. Beat your best." />
+
+<style>
+  :root{
+    --ivory:#F7F3EA;
+    --cream:#EFE6D6;
+    --sand:#DCCAA9;
+    --taupe:#B49E80;
+    --stone:#8C8577;
+    --brown-gray:#6B6055;
+    --ink:#3E362C;
+    --line:rgba(62,54,44,0.12);
+    --white:#FFFDF8;
+    --good:#8FA487;
+    --bad:#C77B5D;
+    --radius:22px;
+    --shadow: 0 10px 30px rgba(62,54,44,0.10);
+    --font-display:"DM Serif Display", Georgia, serif;
+    --font-body:"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+  html,body{
+    margin:0; padding:0;
+    background:var(--ivory);
+    color:var(--ink);
+    font-family:var(--font-body);
+    height:100%;
+    overscroll-behavior:none;
+  }
+
+  body{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    min-height:100vh;
+  }
+
+  /* ---------- Site shell ---------- */
+  .site-header{
+    width:100%;
+    max-width:1100px;
+    padding:20px 24px 6px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
+  .brand{
+    font-family:var(--font-display);
+    font-size:1.15rem;
+    letter-spacing:0.02em;
+    color:var(--brown-gray);
+  }
+  .brand span{ color:var(--taupe); }
+  .mute-btn{
+    border:1px solid var(--line);
+    background:var(--white);
+    color:var(--brown-gray);
+    width:38px;height:38px;
+    border-radius:50%;
+    cursor:pointer;
+    font-size:15px;
+    display:flex;align-items:center;justify-content:center;
+    transition:transform .15s ease, background .2s ease;
+  }
+  .mute-btn:hover{ background:var(--cream); }
+  .mute-btn:active{ transform:scale(0.92); }
+
+  /* ---------- Ad slots (Adsterra) ---------- */
+  .ad-slot{
+    width:100%;
+    max-width:1100px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    margin:8px auto;
+    color:var(--stone);
+    font-size:11px;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+  }
+  .ad-slot .ad-box{
+    width:100%;
+    min-height:90px;
+    border:1px dashed var(--line);
+    border-radius:12px;
+    background:rgba(255,255,255,0.4);
+    display:flex;align-items:center;justify-content:center;
+  }
+  .ad-slot-bottom .ad-box{ min-height:60px; }
+
+  /* ---------- Game stage ---------- */
+  .stage{
+    flex:1;
+    width:100%;
+    max-width:520px;
+    padding:10px 22px 30px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    min-height:60vh;
+  }
+
+  .screen{ width:100%; display:none; flex-direction:column; align-items:center; }
+  .screen.active{ display:flex; }
+
+  /* ---- Start screen ---- */
+  #screen-start{ text-align:center; gap:34px; padding:40px 0; }
+  .title{
+    font-family:var(--font-display);
+    font-size:2.6rem;
+    letter-spacing:0.01em;
+    color:var(--ink);
+    margin:0;
+  }
+  .subtitle{
+    margin-top:10px;
+    color:var(--stone);
+    font-size:0.92rem;
+    letter-spacing:0.02em;
+  }
+  .best-pill{
+    display:inline-flex;
+    gap:8px;
+    align-items:baseline;
+    background:var(--white);
+    border:1px solid var(--line);
+    border-radius:999px;
+    padding:8px 20px;
+    box-shadow:var(--shadow);
+  }
+  .best-pill .label{ font-size:0.72rem; letter-spacing:0.14em; color:var(--stone); }
+  .best-pill .value{ font-family:var(--font-display); font-size:1.2rem; color:var(--brown-gray); }
+
+  .play-btn{
+    font-family:var(--font-body);
+    font-weight:600;
+    font-size:1.1rem;
+    letter-spacing:0.03em;
+    color:var(--ivory);
+    background:var(--brown-gray);
+    border:none;
+    border-radius:999px;
+    padding:20px 64px;
+    cursor:pointer;
+    box-shadow:0 12px 26px rgba(62,54,44,0.22);
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .play-btn:hover{ transform:translateY(-2px); box-shadow:0 16px 32px rgba(62,54,44,0.26); }
+  .play-btn:active{ transform:scale(0.96) translateY(0); }
+
+  .hint{ color:var(--stone); font-size:0.8rem; letter-spacing:0.03em; }
+
+  /* ---- Game screen ---- */
+  #screen-game{ gap:26px; width:100%; }
+
+  .hud{
+    width:100%;
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    padding:0 4px;
+  }
+  .hud .score-block{ text-align:left; }
+  .hud .best-block{ text-align:right; }
+  .hud .k-label{ font-size:0.68rem; letter-spacing:0.14em; color:var(--stone); }
+  .hud .k-value{ font-family:var(--font-display); font-size:2.1rem; color:var(--ink); line-height:1.1; }
+  .hud .k-value.small{ font-size:1.2rem; color:var(--brown-gray); }
+
+  .streak-badge{
+    position:absolute;
+    top:8px; left:50%;
+    transform:translate(-50%,-6px);
+    opacity:0;
+    background:var(--good);
+    color:var(--white);
+    font-size:0.72rem;
+    letter-spacing:0.08em;
+    padding:5px 12px;
+    border-radius:999px;
+    transition:opacity .2s ease, transform .2s ease;
+    pointer-events:none;
+  }
+  .streak-badge.show{ opacity:1; transform:translate(-50%,0); }
+
+  .track-wrap{
+    position:relative;
+    width:100%;
+    padding-top:36px;
+  }
+
+  .track{
+    position:relative;
+    width:100%;
+    height:74px;
+    background:var(--cream);
+    border-radius:var(--radius);
+    box-shadow:inset 0 2px 6px rgba(62,54,44,0.08);
+    overflow:hidden;
+  }
+
+  .target-zone{
+    position:absolute;
+    top:6px; bottom:6px;
+    background:rgba(180,158,128,0.35);
+    border:1.5px solid var(--taupe);
+    border-radius:14px;
+    transition:width .25s ease;
+  }
+
+  .runner{
+    position:absolute;
+    top:12px; bottom:12px;
+    width:34px;
+    background:var(--brown-gray);
+    border-radius:10px;
+    box-shadow:0 4px 10px rgba(62,54,44,0.28);
+  }
+  .runner.perfect-pulse{ animation:pulse .32s ease; }
+  @keyframes pulse{
+    0%{ transform:scale(1); }
+    45%{ transform:scale(1.18); background:var(--good); }
+    100%{ transform:scale(1); }
+  }
+
+  .feedback-text{
+    position:absolute;
+    left:50%; top:-30px;
+    transform:translate(-50%, 8px);
+    font-family:var(--font-display);
+    font-size:1.1rem;
+    color:var(--good);
+    opacity:0;
+    transition:opacity .18s ease, transform .18s ease;
+    pointer-events:none;
+    white-space:nowrap;
+  }
+  .feedback-text.show{ opacity:1; transform:translate(-50%, 0); }
+  .feedback-text.miss{ color:var(--bad); }
+
+  .tap-area{
+    margin-top:6px;
+    width:100%;
+    text-align:center;
+    color:var(--stone);
+    font-size:0.78rem;
+    letter-spacing:0.1em;
+    user-select:none;
+  }
+
+  .stop-btn{
+    margin-top:18px;
+    width:100%;
+    max-width:340px;
+    padding:22px 0;
+    border:none;
+    border-radius:20px;
+    background:var(--white);
+    border:1px solid var(--line);
+    color:var(--brown-gray);
+    font-size:0.95rem;
+    letter-spacing:0.08em;
+    font-weight:600;
+    cursor:pointer;
+    box-shadow:var(--shadow);
+    transition:transform .12s ease;
+  }
+  .stop-btn:active{ transform:scale(0.97); }
+
+  /* ---- Game over screen ---- */
+  #screen-over{ gap:18px; text-align:center; padding:20px 0; }
+  .over-score{
+    font-family:var(--font-display);
+    font-size:4.2rem;
+    color:var(--ink);
+    line-height:1;
+  }
+  .new-best{
+    color:var(--good);
+    font-size:0.85rem;
+    letter-spacing:0.16em;
+    font-weight:700;
+    opacity:0;
+    transform:translateY(6px);
+    transition:opacity .3s ease, transform .3s ease;
+  }
+  .new-best.show{ opacity:1; transform:translateY(0); }
+  .over-best{ color:var(--stone); font-size:0.85rem; letter-spacing:0.04em; }
+  .again-btn{
+    margin-top:10px;
+    font-family:var(--font-body);
+    font-weight:600;
+    font-size:1.05rem;
+    letter-spacing:0.03em;
+    color:var(--ivory);
+    background:var(--ink);
+    border:none;
+    border-radius:999px;
+    padding:20px 58px;
+    cursor:pointer;
+    box-shadow:0 12px 26px rgba(62,54,44,0.22);
+    transition:transform .15s ease;
+  }
+  .again-btn:active{ transform:scale(0.96); }
+  .today-best{ margin-top:4px; color:var(--stone); font-size:0.75rem; letter-spacing:0.06em; }
+
+  .site-footer{
+    color:var(--stone);
+    font-size:0.72rem;
+    letter-spacing:0.04em;
+    padding:10px 0 26px;
+  }
+
+  @media (max-width:420px){
+    .title{ font-size:2.1rem; }
+    .over-score{ font-size:3.4rem; }
+    .play-btn{ padding:18px 50px; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ animation:none !important; transition:none !important; }
+  }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="brand">perfect <span>fit</span></div>
+  <button class="mute-btn" id="muteBtn" aria-label="Toggle sound">🔊</button>
+</header>
+
+<!-- ============================================================
+  ADSTERRA AD SLOT — TOP BANNER
+  Replace the contents of .ad-box below with your Adsterra ad code.
+  1) Log into Adsterra → Websites → your site → Ad units.
+  2) Copy the generated <script> snippet for a Banner (e.g. 728x90 or 320x50).
+  3) Paste it inside the div with id="ad-top" in place of the placeholder text.
+============================================================= -->
+<div class="ad-slot ad-slot-top">
+  <div class="ad-box" id="ad-top">Ad space — 728×90 / 320×50</div>
+</div>
+
+<main class="stage">
+
+  <!-- START SCREEN -->
+  <section id="screen-start" class="screen active">
+    <div>
+      <h1 class="title">Perfect Fit</h1>
+      <p class="subtitle">A simple timing game</p>
+    </div>
+    <div class="best-pill">
+      <span class="label">BEST</span>
+      <span class="value" id="bestDisplay">0</span>
+    </div>
+    <button class="play-btn" id="playBtn">PLAY</button>
+    <p class="hint">Tap, click, or press space to stop the block</p>
+  </section>
+
+  <!-- GAME SCREEN -->
+  <section id="screen-game" class="screen">
+    <div class="hud">
+      <div class="score-block">
+        <div class="k-label">SCORE</div>
+        <div class="k-value" id="scoreValue">0</div>
+      </div>
+      <div class="best-block">
+        <div class="k-label">BEST</div>
+        <div class="k-value small" id="bestValueGame">0</div>
+      </div>
+    </div>
+
+    <div class="track-wrap">
+      <div class="streak-badge" id="streakBadge">PERFECT × 0</div>
+      <div class="feedback-text" id="feedbackText">PERFECT</div>
+      <div class="track" id="track">
+        <div class="target-zone" id="targetZone"></div>
+        <div class="runner" id="runner"></div>
+      </div>
+    </div>
+
+    <p class="tap-area">TAP TO STOP</p>
+    <button class="stop-btn" id="stopBtn">STOP</button>
+  </section>
+
+  <!-- GAME OVER SCREEN -->
+  <section id="screen-over" class="screen">
+    <div class="over-score" id="finalScore">0</div>
+    <div class="new-best" id="newBestTag">NEW BEST</div>
+    <div class="over-best">BEST: <span id="bestValueOver">0</span></div>
+    <div class="today-best">TODAY'S BEST: <span id="todayBestValue">0</span></div>
+    <button class="again-btn" id="againBtn">PLAY AGAIN</button>
+  </section>
+
+</main>
+
+<!-- ============================================================
+  ADSTERRA AD SLOT — BOTTOM / NATIVE BANNER
+  Paste a second Adsterra ad unit here (e.g. Native Banner or
+  Social Bar code) inside the div with id="ad-bottom".
+============================================================= -->
+<div class="ad-slot ad-slot-bottom">
+  <div class="ad-box" id="ad-bottom">Ad space — native banner</div>
+</div>
+
+<footer class="site-footer">perfect fit · a tiny timing game</footer>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------- Elements ----------
+  const screens = {
+    start: document.getElementById('screen-start'),
+    game:  document.getElementById('screen-game'),
+    over:  document.getElementById('screen-over'),
+  };
+  const playBtn      = document.getElementById('playBtn');
+  const againBtn     = document.getElementById('againBtn');
+  const stopBtn      = document.getElementById('stopBtn');
+  const track        = document.getElementById('track');
+  const runner       = document.getElementById('runner');
+  const targetZone   = document.getElementById('targetZone');
+  const scoreValue   = document.getElementById('scoreValue');
+  const bestDisplay  = document.getElementById('bestDisplay');
+  const bestValueGame= document.getElementById('bestValueGame');
+  const bestValueOver= document.getElementById('bestValueOver');
+  const finalScore   = document.getElementById('finalScore');
+  const newBestTag   = document.getElementById('newBestTag');
+  const todayBestValue = document.getElementById('todayBestValue');
+  const feedbackText = document.getElementById('feedbackText');
+  const streakBadge  = document.getElementById('streakBadge');
+  const muteBtn      = document.getElementById('muteBtn');
+
+  // ---------- Persistent state ----------
+  const LS_BEST = 'perfectFit.best';
+  const LS_TODAY = 'perfectFit.today';
+  const LS_TODAY_DATE = 'perfectFit.todayDate';
+
+  function getBest(){ return parseInt(localStorage.getItem(LS_BEST) || '0', 10); }
+  function setBest(v){ localStorage.setItem(LS_BEST, String(v)); }
+
+  function getTodayBest(){
+    const todayStr = new Date().toDateString();
+    const storedDate = localStorage.getItem(LS_TODAY_DATE);
+    if (storedDate !== todayStr){
+      localStorage.setItem(LS_TODAY_DATE, todayStr);
+      localStorage.setItem(LS_TODAY, '0');
+      return 0;
+    }
+    return parseInt(localStorage.getItem(LS_TODAY) || '0', 10);
+  }
+  function setTodayBest(v){ localStorage.setItem(LS_TODAY, String(v)); }
+
+  let best = getBest();
+  bestDisplay.textContent = best;
+
+  // ---------- Audio (tiny, soft, generated — no external assets) ----------
+  let muted = false;
+  let audioCtx = null;
+  function ensureAudio(){
+    if (!audioCtx){
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) audioCtx = new AC();
+    }
+  }
+  function beep(freq, duration, gainPeak){
+    if (muted || !audioCtx) return;
+    const t0 = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freq, t0);
+    gain.gain.setValueAtTime(0.0001, t0);
+    gain.gain.exponentialRampToValueAtTime(gainPeak, t0 + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start(t0);
+    osc.stop(t0 + duration + 0.02);
+  }
+  function sfxHit(){ beep(520, 0.09, 0.05); }
+  function sfxPerfect(){ beep(720, 0.12, 0.06); setTimeout(()=>beep(960, 0.1, 0.05), 60); }
+  function sfxMiss(){ beep(160, 0.25, 0.05); }
+
+  muteBtn.addEventListener('click', () => {
+    ensureAudio();
+    muted = !muted;
+    muteBtn.textContent = muted ? '🔇' : '🔊';
+  });
+
+  // ---------- Game state ----------
+  let score = 0;
+  let streak = 0;
+  let rafId = null;
+  let pos = 0;          // px, left edge of runner within track
+  let dir = 1;           // 1 or -1
+  let speed = 1.6;       // px per ms baseline
+  let trackWidth = 0;
+  let runnerWidth = 34;
+  let targetWidth = 100;
+  let running = false;
+  let lastTime = 0;
+
+  function showScreen(name){
+    Object.values(screens).forEach(s => s.classList.remove('active'));
+    screens[name].classList.add('active');
+  }
+
+  function difficultyForScore(s){
+    const tw = Math.max(30, 100 - s * 3);
+    const sp = Math.min(0.85, 0.20 + s * 0.018); // px per ms
+    return { targetWidth: tw, speed: sp };
+  }
+
+  function layoutTrack(){
+    trackWidth = track.clientWidth;
+    const zoneLeft = (trackWidth - targetWidth) / 2;
+    targetZone.style.width = targetWidth + 'px';
+    targetZone.style.left = zoneLeft + 'px';
+  }
+
+  function startRound(){
+    const d = difficultyForScore(score);
+    targetWidth = d.targetWidth;
+    speed = d.speed;
+    layoutTrack();
+
+    // randomize starting side / position a bit for higher scores
+    if (score > 15){
+      dir = Math.random() < 0.5 ? 1 : -1;
+      pos = dir === 1 ? Math.random() * (trackWidth * 0.3) : trackWidth - runnerWidth - Math.random() * (trackWidth * 0.3);
+    } else {
+      dir = Math.random() < 0.5 ? 1 : -1;
+      pos = dir === 1 ? 0 : trackWidth - runnerWidth;
+    }
+
+    running = true;
+    lastTime = performance.now();
+    rafId = requestAnimationFrame(tick);
+  }
+
+  function tick(now){
+    if (!running) return;
+    const dt = now - lastTime;
+    lastTime = now;
+    pos += dir * speed * dt;
+
+    if (pos <= 0){ pos = 0; dir = 1; }
+    if (pos >= trackWidth - runnerWidth){ pos = trackWidth - runnerWidth; dir = -1; }
+
+    runner.style.width = runnerWidth + 'px';
+    runner.style.transform = `translateX(${pos}px)`;
+
+    rafId = requestAnimationFrame(tick);
+  }
+
+  function showFeedback(text, isMiss){
+    feedbackText.textContent = text;
+    feedbackText.classList.toggle('miss', !!isMiss);
+    feedbackText.classList.add('show');
+    setTimeout(() => feedbackText.classList.remove('show'), 480);
+  }
+
+  function showStreak(){
+    if (streak >= 2){
+      streakBadge.textContent = `PERFECT × ${streak}`;
+      streakBadge.classList.add('show');
+      setTimeout(() => streakBadge.classList.remove('show'), 700);
+    }
+  }
+
+  function stopRunner(){
+    if (!running) return;
+    running = false;
+    cancelAnimationFrame(rafId);
+    ensureAudio();
+
+    const runnerCenter = pos + runnerWidth / 2;
+    const zoneLeft = (trackWidth - targetWidth) / 2;
+    const zoneCenter = trackWidth / 2;
+    const zoneRight = zoneLeft + targetWidth;
+
+    const inZone = runnerCenter >= zoneLeft && runnerCenter <= zoneRight;
+    const distFromCenter = Math.abs(runnerCenter - zoneCenter);
+    const perfectThreshold = Math.max(8, targetWidth / 6);
+
+    if (inZone){
+      score += 1;
+      scoreValue.textContent = score;
+
+      if (distFromCenter <= perfectThreshold){
+        streak += 1;
+        runner.classList.remove('perfect-pulse'); void runner.offsetWidth;
+        runner.classList.add('perfect-pulse');
+        showFeedback('PERFECT', false);
+        showStreak();
+        sfxPerfect();
+      } else {
+        streak = 0;
+        sfxHit();
+      }
+
+      setTimeout(startRound, 260);
+    } else {
+      streak = 0;
+      sfxMiss();
+      const nearMiss = Math.abs(distFromCenter - targetWidth / 2) <= 20;
+      if (nearMiss) showFeedback('SO CLOSE', true);
+      endGame();
+    }
+  }
+
+  function endGame(){
+    const isNewBest = score > best;
+    if (isNewBest){
+      best = score;
+      setBest(best);
+    }
+    const todayBest = Math.max(getTodayBest(), score);
+    setTodayBest(todayBest);
+
+    finalScore.textContent = score;
+    bestValueOver.textContent = best;
+    todayBestValue.textContent = todayBest;
+    newBestTag.classList.toggle('show', isNewBest);
+
+    setTimeout(() => showScreen('over'), 350);
+  }
+
+  function newGame(){
+    score = 0;
+    streak = 0;
+    scoreValue.textContent = 0;
+    bestValueGame.textContent = best;
+    bestDisplay.textContent = best;
+    showScreen('game');
+    // slight delay so layout is measured after screen is visible
+    requestAnimationFrame(() => requestAnimationFrame(startRound));
+  }
+
+  // ---------- Input ----------
+  playBtn.addEventListener('click', () => { ensureAudio(); newGame(); });
+  againBtn.addEventListener('click', () => { ensureAudio(); newGame(); });
+  stopBtn.addEventListener('click', stopRunner);
+  track.addEventListener('click', stopRunner);
+
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'Space' && screens.game.classList.contains('active')){
+      e.preventDefault();
+      stopRunner();
+    }
+  });
+
+  window.addEventListener('resize', () => {
+    if (screens.game.classList.contains('active')) layoutTrack();
+  });
+
+  // initial best sync
+  bestValueGame.textContent = best;
+})();
+</script>
+
+</body>
+</html>
